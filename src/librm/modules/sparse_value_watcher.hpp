@@ -68,10 +68,20 @@ class SparseValueWatcher {
   void OnValueChange(Callback callback) { callback_ = callback; }
 
   /**
+   * @brief 设置是否忽略第一次更新（默认忽略）
+   * @param ignore 如果设置为true，则第一次调用Update时一定不会触发回调；反之，会触发回调
+   */
+  void IgnoreFirstUpdate(bool ignore) { ignore_first_update_ = ignore; }
+
+  /**
    * @brief 更新值并检查是否发生变化
    * @param new_value 新的值
    */
   void Update(const T &new_value) {
+    if (ignore_first_update_ && is_first_update_) {
+      is_first_update_ = false;
+      return;
+    }
     if (new_value != value_) {
       T old_value = value_;
       value_ = new_value;
@@ -90,6 +100,8 @@ class SparseValueWatcher {
  private:
   T value_;
   Callback callback_;
+  bool ignore_first_update_{true};
+  bool is_first_update_{true};
 };
 
 }  // namespace rm::modules
