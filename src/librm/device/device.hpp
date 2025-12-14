@@ -34,20 +34,24 @@
 
 #include <etl/vector.h>
 #include <etl/delegate.h>
+#include <etl/string.h>
 
 #include "librm/core/exception.hpp"
+#include "librm/core/typedefs.hpp"
 
 namespace rm::device {
 
 /**
- * @brief 驱动框架的设备基类，主要功能为监视设备在线状态
+ * @brief 驱动框架的设备基类，功能为监视设备状态
  */
 class Device {
   using time_point = std::chrono::time_point<std::chrono::steady_clock>;
   using duration = std::chrono::steady_clock::duration;
 
+  constexpr static usize kMaxNameLength = 32;
+
  public:
-  Device() = default;
+  Device();
   virtual ~Device() = default;
 
   /**
@@ -57,17 +61,6 @@ class Device {
    */
   void SetHeartbeatTimeout(duration timeout);
 
-  /**
-   * @return 设备是否在线且正常工作
-   */
-  [[nodiscard]] bool Ok();
-
-  /**
-   * @return 获取最后一次设备上报状态的时间点
-   */
-  [[nodiscard]] time_point last_seen() const;
-
- protected:
   /**
    * @brief 设备状态
    */
@@ -79,14 +72,38 @@ class Device {
   };
 
   /**
+   * @return 设备的当前状态
+   */
+  [[nodiscard]] Status online_status();
+
+  /**
+   * @return 获取最后一次设备上报状态的时间点
+   */
+  [[nodiscard]] time_point last_seen() const;
+
+  /**
+   * @brief 设置设备名称
+   * @param name 设备名称
+   */
+  void SetName(etl::string<kMaxNameLength> name);
+
+  /**
+   * @brief 获取设备名称
+   * @return 设备名称
+   */
+  [[nodiscard]] etl::string<kMaxNameLength> name() const;
+
+ protected:
+  /**
    * @brief 更新设备状态
    * @note  子类应该在确定设备仍然在线（比如收到反馈报文）时调用此函数，更新设备在线时间戳
    */
   void ReportStatus(Status status);
 
  private:
-  Status online_status_{kUnknown};
-  time_point last_seen_{time_point::min()};  ///< 设备最后一次上报状态的时间点
+  etl::string<kMaxNameLength> name_{};                   ///< 设备名称，最大32字节
+  Status online_status_{kUnknown};                       ///< 设备当前在线状态
+  time_point last_seen_{time_point::min()};              ///< 设备最后一次上报状态的时间点
   duration heartbeat_timeout_{std::chrono::seconds(1)};  ///< 心跳超时时间，超过这个时间没有收到心跳则认为设备离线
 };
 
@@ -108,7 +125,9 @@ class DeviceManager {
 
   DeviceManager(std::initializer_list<Device *> devices) {
     if (devices.size() <= kMaxDevices) {
-      devices_ = devices;
+      for (auto *device : devices) {
+        devices_.push_back({device, Device::kUnknown});  // 初始状态为未知
+      }
     } else {
       Throw(std::runtime_error("DeviceManager: Too many devices!"));
     }
@@ -116,7 +135,7 @@ class DeviceManager {
 
   DeviceManager &operator<<(Device *device) {
     if (devices_.size() < kMaxDevices) {
-      devices_.push_back(device);
+      devices_.push_back({device, Device::kUnknown});  // 初始状态为未知
     } else {
       Throw(std::runtime_error("DeviceManager: Too many devices!"));
     }
@@ -129,26 +148,32 @@ class DeviceManager {
    */
   bool Update() {
     all_device_ok_ = true;
-    for (auto device : devices_) {
-      if (!device->Ok()) {
+    for (auto &entry : devices_) {
+      const Device::Status current_status = entry.device->online_status();
+      if (current_status != Device::kOk) {
         all_device_ok_ = false;
-        for (const auto &callback : fault_offline_callbacks_) {
-          callback(device);
+      }
+      // 设备状态发生变化，触发回调
+      if (entry.prev_status != current_status) {
+        for (const auto &callback : status_change_callbacks_) {
+          callback(entry.device);
         }
       }
+      entry.prev_status = current_status;
     }
     return all_device_ok_;
   }
 
   /**
-   * @brief 注册设备故障或离线回调
-   * @param callback 回调函数，参数为发生故障或离线的设备指针
+   * @brief 注册设备状态变化回调
+   * @param callback 回调函数，参数为状态发生变化的设备指针
+   * @note  当设备的状态发生任何变化时都会触发此回调，包括：在线<->离线、在线<->故障、离线<->故障等所有状态转换
    */
-  void OnDeviceFaultOrOffline(CallbackType callback) {
-    if (fault_offline_callbacks_.size() < 10) {
-      fault_offline_callbacks_.emplace_back(callback);
+  void OnDeviceStatusChange(CallbackType callback) {
+    if (status_change_callbacks_.size() < 10) {
+      status_change_callbacks_.emplace_back(callback);
     } else {
-      Throw(std::runtime_error("DeviceManager: Too many fault callbacks!"));
+      Throw(std::runtime_error("DeviceManager: Too many status change callbacks!"));
     }
   }
 
@@ -158,9 +183,19 @@ class DeviceManager {
   bool all_device_ok() const { return all_device_ok_; }
 
  private:
+  /**
+   * @brief 设备条目，封装设备指针和其上一次的状态
+   */
+  struct DeviceEntry {
+    Device *device{nullptr};                       ///< 设备指针
+    Device::Status prev_status{Device::kUnknown};  ///< 上一次的设备状态
+  };
+
+  constexpr static usize kMaxCallbacks = 4;  ///< 最大回调函数数量，不够可以调大
+
   bool all_device_ok_{false};
-  etl::vector<CallbackType, 10> fault_offline_callbacks_;
-  etl::vector<Device *, kMaxDevices> devices_;
+  etl::vector<CallbackType, kMaxCallbacks> status_change_callbacks_;
+  etl::vector<DeviceEntry, kMaxDevices> devices_;
 };
 
 }  // namespace rm::device

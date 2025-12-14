@@ -27,17 +27,26 @@
 
 #include "device.hpp"
 
+#include <etl/to_string.h>
+
 namespace rm::device {
+
+Device::Device() {
+  // 把这个设备的地址作为它的默认名称
+  etl::format_spec format;
+  format.hex().width(16).fill('0');
+  etl::to_string(reinterpret_cast<uintptr_t>(this), name_, format);
+}
 
 void Device::SetHeartbeatTimeout(duration timeout) { heartbeat_timeout_ = timeout; }
 
-[[nodiscard]] bool Device::Ok() {
+[[nodiscard]] Device::Status Device::online_status() {
   const auto now = std::chrono::steady_clock::now();
   if (now - last_seen_ > heartbeat_timeout_) {
     // 如果距离上次设备上报状态时间超过心跳超时时间，则认为设备离线
     online_status_ = kOffline;
   }
-  return online_status_ == kOk;
+  return online_status_;
 }
 
 [[nodiscard]] Device::time_point Device::last_seen() const { return last_seen_; }
@@ -46,5 +55,9 @@ void Device::ReportStatus(Status status) {
   last_seen_ = std::chrono::steady_clock::now();
   online_status_ = status;
 }
+
+void Device::SetName(etl::string<kMaxNameLength> name) { name_ = std::move(name); }
+
+[[nodiscard]] etl::string<Device::kMaxNameLength> Device::name() const { return name_; }
 
 }  // namespace rm::device
