@@ -108,10 +108,10 @@ class HipnucImu : public Device {
   void ProcessHi83Packet();
 
   // 滑动窗口分包相关
-  static constexpr u16 kSlidingWindowSize = 1024; ///< 滑动窗口大小(需要大于最大包长)
-  static constexpr u8 kSyncByte1 = 0x5A;          ///< 同步字节1
-  static constexpr u8 kSyncByte2 = 0xA5;          ///< 同步字节2
-  static constexpr u16 kHeaderSize = 6;           ///< 协议头大小
+  static constexpr u16 kSlidingWindowSize = 1024;  ///< 滑动窗口大小(需要大于最大包长)
+  static constexpr u8 kSyncByte1 = 0x5A;           ///< 同步字节1
+  static constexpr u8 kSyncByte2 = 0xA5;           ///< 同步字节2
+  static constexpr u16 kHeaderSize = 6;            ///< 协议头大小
 
   void FindAndDecodePackets();
 
@@ -119,8 +119,8 @@ class HipnucImu : public Device {
   hipnuc_raw_t raw_{};  ///< HiPNUC SDK里定义的原始数据
 
   // 滑动窗口缓冲区（线性缓冲区，简化实现）
-  u8 sliding_window_[kSlidingWindowSize]{};       ///< 滑动窗口缓冲区
-  u16 window_data_len_{0};                        ///< 窗口中有效数据长度
+  u8 sliding_window_[kSlidingWindowSize]{};  ///< 滑动窗口缓冲区
+  u16 window_data_len_{0};                   ///< 窗口中有效数据长度
 
   HipnucPacketType last_packet_type_{kNone};
 

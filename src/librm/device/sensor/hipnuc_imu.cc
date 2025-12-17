@@ -82,8 +82,7 @@ void HipnucImu::FindAndDecodePackets() {
     u16 sync_pos = search_pos;
 
     for (; sync_pos <= window_data_len_ - 2; sync_pos++) {
-      if (sliding_window_[sync_pos] == kSyncByte1 &&
-          sliding_window_[sync_pos + 1] == kSyncByte2) {
+      if (sliding_window_[sync_pos] == kSyncByte1 && sliding_window_[sync_pos + 1] == kSyncByte2) {
         sync_found = true;
         break;
       }
@@ -112,8 +111,8 @@ void HipnucImu::FindAndDecodePackets() {
     }
 
     // 提取payload长度（字节2-3，小端序）
-    const u16 payload_len = static_cast<u16>(sliding_window_[sync_pos + 2]) |
-                           (static_cast<u16>(sliding_window_[sync_pos + 3]) << 8);
+    const u16 payload_len =
+        static_cast<u16>(sliding_window_[sync_pos + 2]) | (static_cast<u16>(sliding_window_[sync_pos + 3]) << 8);
 
     // 检查长度是否合法
     if (payload_len > (HIPNUC_MAX_RAW_SIZE - kHeaderSize)) {
@@ -159,8 +158,7 @@ void HipnucImu::FindAndDecodePackets() {
 
       // 移除已处理的数据包
       const u16 bytes_to_remove = sync_pos + total_packet_len;
-      std::memmove(sliding_window_, sliding_window_ + bytes_to_remove,
-                   window_data_len_ - bytes_to_remove);
+      std::memmove(sliding_window_, sliding_window_ + bytes_to_remove, window_data_len_ - bytes_to_remove);
       window_data_len_ -= bytes_to_remove;
       search_pos = 0;  // 从头开始搜索下一个包
     } else {
