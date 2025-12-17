@@ -191,6 +191,14 @@ typedef struct
 int hipnuc_input(hipnuc_raw_t *raw, uint8_t data);
 
 /**
+ * @brief Decode a complete HiPNUC packet from raw buffer
+ *
+ * @param raw Pointer to hipnuc_raw_t structure with buf and len already set
+ * @return int 1 if successfully decoded, -1 on error (CRC mismatch)
+ */
+int hipnuc_decode(hipnuc_raw_t *raw);
+
+/**
  * @brief Dump decoded HiPNUC packet data to a string buffer
  *
  * @param raw Pointer to hipnuc_raw_t structure containing decoded data

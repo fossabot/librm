@@ -132,7 +132,7 @@ static int parse_data(hipnuc_raw_t *raw)
     return 1;
 }
 
-static int decode_hipnuc(hipnuc_raw_t *raw)
+static int decode_hipnuc_internal(hipnuc_raw_t *raw)
 {
     uint16_t crc = 0;
 
@@ -146,6 +146,17 @@ static int decode_hipnuc(hipnuc_raw_t *raw)
     }
 
     return parse_data(raw);
+}
+
+/**
+ * @brief     Decode a complete HiPNUC packet from raw buffer
+ *
+ * @param    raw is the decoder struct with buf and len already set
+ * @return   1: successfully decoded, -1: CRC error or decode failed
+ */
+int hipnuc_decode(hipnuc_raw_t *raw)
+{
+    return decode_hipnuc_internal(raw);
 }
 
 /* sync code */
@@ -193,7 +204,7 @@ int hipnuc_input(hipnuc_raw_t *raw, uint8_t data)
 
     raw->nbyte = 0;
 
-    return decode_hipnuc(raw);
+    return decode_hipnuc_internal(raw);
 }
 
 
