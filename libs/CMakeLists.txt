@@ -20,12 +20,20 @@ add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/etl)
 # hipnuc sdk
 add_subdirectory(hipnuc_sdk)
 
+# Ardupilot filter library
 add_subdirectory(ardupilot_filter_lib)
+
+# rpc_core - https://github.com/shuai132/rpc_core
+add_compile_definitions(RPC_CORE_LOG_DISABLE_ALL)
+add_subdirectory(rpc_core)
 
 # pack up all third party libraries to a single target
 add_library(third_party INTERFACE)
 if (LIBRM_PLATFORM STREQUAL "LINUX")
-    target_link_libraries(third_party INTERFACE Boost::system Threads::Threads)
+    target_link_libraries(third_party INTERFACE
+            Boost::system
+            Threads::Threads
+    )
 endif ()
 
 if (LIBRM_PLATFORM_LINUX_TYPE STREQUAL "RASPI")
@@ -33,7 +41,14 @@ if (LIBRM_PLATFORM_LINUX_TYPE STREQUAL "RASPI")
     target_link_libraries(third_party INTERFACE ${WIRINGPI_LIBRARIES})
 endif ()
 
-target_link_libraries(third_party INTERFACE Kalman eigen etl::etl hipnuc_sdk ardupilot_filter)
+target_link_libraries(third_party INTERFACE
+        Kalman
+        eigen
+        etl::etl
+        hipnuc_sdk
+        ardupilot_filter
+        rpc_core
+)
 
 set(BUILD_TESTS OFF)
 set(BUILD_EXHAUSTIVE_TESTS OFF)
