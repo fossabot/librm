@@ -59,12 +59,12 @@ class HipnucImuCan final : public CanDevice {
    */
   explicit HipnucImuCan(hal::CanInterface &can, u8 node_id = 1)
       : CanDevice(can,
-                  static_cast<u16>(0x180 + node_id),  // TPDO1: 加速度
-                  static_cast<u16>(0x280 + node_id),  // TPDO2: 角速度
-                  static_cast<u16>(0x380 + node_id),  // TPDO3: 欧拉角
-                  static_cast<u16>(0x480 + node_id),  // TPDO4: 四元数
-                  static_cast<u16>(0x680 + node_id),  // TPDO6: 气压
-                  static_cast<u16>(0x780 + node_id)), // TPDO7: 倾角
+                  static_cast<u16>(0x180 + node_id),   // TPDO1: 加速度
+                  static_cast<u16>(0x280 + node_id),   // TPDO2: 角速度
+                  static_cast<u16>(0x380 + node_id),   // TPDO3: 欧拉角
+                  static_cast<u16>(0x480 + node_id),   // TPDO4: 四元数
+                  static_cast<u16>(0x680 + node_id),   // TPDO6: 气压
+                  static_cast<u16>(0x780 + node_id)),  // TPDO7: 倾角
         node_id_(node_id) {}
 
   /**
@@ -174,20 +174,20 @@ class HipnucImuCan final : public CanDevice {
   [[nodiscard]] const can_sensor_data_t &raw_data() const { return sensor_data_; }
 
  private:
-  u8 node_id_{1};                      ///< CANOPEN节点ID
-  int last_msg_type_{CAN_MSG_UNKNOWN}; ///< 最后一次接收的消息类型
-  can_sensor_data_t sensor_data_{};    ///< HIPNUC SDK解析后的传感器数据
+  u8 node_id_{1};                       ///< CANOPEN节点ID
+  int last_msg_type_{CAN_MSG_UNKNOWN};  ///< 最后一次接收的消息类型
+  can_sensor_data_t sensor_data_{};     ///< HIPNUC SDK解析后的传感器数据
 
   // 缓存的IMU数据
-  f32 acc_[3]{0.0f};   ///< 加速度 (m/s²)
-  f32 gyro_[3]{0.0f};  ///< 角速度 (rad/s)
-  f32 roll_{0.0f};     ///< 横滚角 (rad)
-  f32 pitch_{0.0f};    ///< 俯仰角 (rad)
-  f32 yaw_{0.0f};      ///< 航向角 (rad)
-  f32 quat_[4]{0.0f};  ///< 四元数 (w, x, y, z)
-  f32 pressure_{0.0f}; ///< 气压 (Pa)
-  f32 incli_x_{0.0f};  ///< X轴倾角 (度)
-  f32 incli_y_{0.0f};  ///< Y轴倾角 (度)
+  f32 acc_[3]{0.0f};    ///< 加速度 (m/s²)
+  f32 gyro_[3]{0.0f};   ///< 角速度 (rad/s)
+  f32 roll_{0.0f};      ///< 横滚角 (rad)
+  f32 pitch_{0.0f};     ///< 俯仰角 (rad)
+  f32 yaw_{0.0f};       ///< 航向角 (rad)
+  f32 quat_[4]{0.0f};   ///< 四元数 (w, x, y, z)
+  f32 pressure_{0.0f};  ///< 气压 (Pa)
+  f32 incli_x_{0.0f};   ///< X轴倾角 (度)
+  f32 incli_y_{0.0f};   ///< Y轴倾角 (度)
 };
 
 }  // namespace rm::device
