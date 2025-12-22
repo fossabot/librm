@@ -74,6 +74,7 @@
 #include "librm/modules/buzzer_controller.hpp"
 #include "librm/modules/chassis_fkik.hpp"
 #include "librm/modules/crc.hpp"
+#include "librm/modules/dsp_filters.hpp"
 #include "librm/modules/float16.hpp"
 #include "librm/modules/pid.hpp"
 #include "librm/modules/rgb_led_controller.hpp"

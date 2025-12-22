@@ -20,6 +20,8 @@ add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/etl)
 # hipnuc sdk
 add_subdirectory(hipnuc_sdk)
 
+add_subdirectory(ardupilot_filter_lib)
+
 # pack up all third party libraries to a single target
 add_library(third_party INTERFACE)
 if (LIBRM_PLATFORM STREQUAL "LINUX")
@@ -31,7 +33,7 @@ if (LIBRM_PLATFORM_LINUX_TYPE STREQUAL "RASPI")
     target_link_libraries(third_party INTERFACE ${WIRINGPI_LIBRARIES})
 endif ()
 
-target_link_libraries(third_party INTERFACE Kalman eigen etl::etl hipnuc_sdk)
+target_link_libraries(third_party INTERFACE Kalman eigen etl::etl hipnuc_sdk ardupilot_filter)
 
 set(BUILD_TESTS OFF)
 set(BUILD_EXHAUSTIVE_TESTS OFF)
