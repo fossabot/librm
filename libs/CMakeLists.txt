@@ -24,11 +24,11 @@ add_subdirectory(hipnuc_sdk)
 add_subdirectory(ardupilot_filter_lib)
 
 # rpc_core - https://github.com/shuai132/rpc_core
-add_compile_definitions(RPC_CORE_LOG_DISABLE_ALL)
 add_subdirectory(rpc_core)
 
 # pack up all third party libraries to a single target
 add_library(third_party INTERFACE)
+target_compile_definitions(third_party INTERFACE RPC_CORE_LOG_DISABLE_ALL)
 if (LIBRM_PLATFORM STREQUAL "LINUX")
     target_link_libraries(third_party INTERFACE
             Boost::system
