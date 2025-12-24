@@ -21,7 +21,7 @@
 */
 
 /**
- * @file  librm/hal/stm32/bxcan.h
+ * @file  librm/hal/stm32/bxcan.hpp
  * @brief bxCAN类库
  */
 
@@ -33,7 +33,6 @@
 
 #include "librm/core/traits.hpp"
 #include "librm/hal/can_interface.hpp"
-#include "librm/device/can_device.hpp"
 
 namespace rm::hal::stm32 {
 
@@ -41,10 +40,16 @@ namespace rm::hal::stm32 {
  * @brief bxCAN类库
  */
 class BxCan final : public CanInterface, detail::NonCopyable {
+  // 声明静态回调函数为友元，使其可以访问private方法
+  friend void CanRxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan);
+
  public:
   explicit BxCan(CAN_HandleTypeDef &hcan);
-  BxCan() = default;
-  ~BxCan() override = default;
+  ~BxCan() override;
+
+  // 移动构造
+  BxCan(BxCan &&other) noexcept;
+  BxCan &operator=(BxCan &&other) noexcept;
 
   void SetFilter(u16 id, u16 mask) override;
   void Write(u16 id, const u8 *data, usize size) override;

@@ -32,46 +32,79 @@
 
 #include "bxcan.hpp"
 
-#include <functional>
-#include <stdexcept>
-#include <algorithm>
-#include <etl/unordered_map.h>
-
 #include "librm/device/can_device.hpp"
 #include "librm/hal/stm32/helper_macro.hpp"
-
-/**
- * @brief 存储各个hcan句柄对应的接收回调函数指针的map
- */
-static etl::unordered_map<CAN_HandleTypeDef *, std::function<void()>,
-                          5>  // 一般来说不会用到超过5条CAN总线的STM32，这里设为5应该够了
-    fn_cb_map;
-
-/**
- * @brief  把std::function转换为函数指针
- * @param  fn   要转换的函数
- * @param  hcan  HAL库的CAN_HandleTypeDef
- * @return      转换后的函数指针
- * @note
- * 背景：因为要用面向对象的方式对外设进行封装，所以回调函数必须存在于类内。但是存在于类内就意味着这个回调函数多了一个this参数，
- * 而HAL库要求的回调函数并没有这个this参数。通过std::bind，可以生成一个参数列表里没有this指针的std::function对象，而std::function
- * 并不能直接强转成函数指针。借助这个函数，可以把std::function对象转换成函数指针。然后就可以把这个类内的回调函数传给HAL库了。
- */
-static pCAN_CallbackTypeDef StdFunctionToCallbackFunctionPtr(std::function<void()> fn, CAN_HandleTypeDef *hcan) {
-  fn_cb_map[hcan] = std::move(fn);
-  return [](CAN_HandleTypeDef *hcan) {
-    if (fn_cb_map.find(hcan) != fn_cb_map.end()) {
-      fn_cb_map[hcan]();
-    }
-  };
-}
 
 namespace rm::hal::stm32 {
 
 /**
+ * @brief 存储CAN1和CAN2对应的BxCan实例指针
+ */
+static BxCan *bxcan_instances[2] = {nullptr, nullptr};
+
+/**
+ * @brief  根据CAN实例地址获取bxcan_instances数组索引
+ * @param  hcan  HAL库的CAN_HandleTypeDef
+ * @return 数组索引（0或1），如果不是有效的CAN实例则返回-1
+ */
+__attribute__((always_inline)) static int GetCanIndex(CAN_HandleTypeDef *hcan) {
+  const auto instance = reinterpret_cast<uintptr_t>(hcan->Instance);
+  if (instance == CAN1_BASE) return 0;
+  if (instance == CAN2_BASE) return 1;
+  return -1;
+}
+
+/**
+ * @brief  注册给HAL库的CAN接收回调函数
+ * @param  hcan  HAL库的CAN_HandleTypeDef
+ */
+void CanRxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
+  const int can_idx = GetCanIndex(hcan);
+  if (can_idx >= 0) {
+    BxCan *instance = bxcan_instances[can_idx];
+    if (instance != nullptr) {
+      instance->Fifo0MsgPendingCallback();
+    }
+  }
+}
+
+/**
  * @param hcan HAL库的CAN_HandleTypeDef
  */
-BxCan::BxCan(CAN_HandleTypeDef &hcan) : hcan_(&hcan) {}
+BxCan::BxCan(CAN_HandleTypeDef &hcan) : hcan_(&hcan) {
+  int idx = GetCanIndex(hcan_);
+  if (idx >= 0) {
+    bxcan_instances[idx] = this;
+  }
+}
+
+BxCan::~BxCan() {
+  Stop();
+  int idx = GetCanIndex(hcan_);
+  if (idx >= 0) {
+    bxcan_instances[idx] = nullptr;
+  }
+}
+
+BxCan::BxCan(BxCan &&other) noexcept : hcan_(other.hcan_) {
+  // 把全局数组里的指针指向新的自己
+  int idx = GetCanIndex(hcan_);
+  if (idx >= 0) {
+    bxcan_instances[idx] = this;
+  }
+}
+
+BxCan &BxCan::operator=(BxCan &&other) noexcept {
+  if (this != &other) {
+    hcan_ = other.hcan_;
+    // 把全局数组里的指针指向新的自己
+    int idx = GetCanIndex(hcan_);
+    if (idx >= 0) {
+      bxcan_instances[idx] = this;
+    }
+  }
+  return *this;
+}
 
 /**
  * @brief 设置过滤器
@@ -124,8 +157,7 @@ void BxCan::Write(u16 id, const u8 *data, usize size) {
  */
 void BxCan::Begin() {
   LIBRM_STM32_HAL_ASSERT(
-      HAL_CAN_RegisterCallback(hcan_, HAL_CAN_RX_FIFO0_MSG_PENDING_CB_ID,
-                               StdFunctionToCallbackFunctionPtr([this] { Fifo0MsgPendingCallback(); }, hcan_)));
+      HAL_CAN_RegisterCallback(hcan_, HAL_CAN_RX_FIFO0_MSG_PENDING_CB_ID, CanRxFifo0MsgPendingCallback));
   LIBRM_STM32_HAL_ASSERT(HAL_CAN_Start(hcan_));
   LIBRM_STM32_HAL_ASSERT(HAL_CAN_ActivateNotification(hcan_, CAN_IT_RX_FIFO0_MSG_PENDING));
 }
@@ -140,14 +172,19 @@ void BxCan::Stop() { LIBRM_STM32_HAL_ASSERT(HAL_CAN_Stop(hcan_)); }
  * @note  这个函数替代了HAL_CAN_RxFifo0MsgPendingCallback，HAL库会调用这个函数，不要手动调用
  */
 void BxCan::Fifo0MsgPendingCallback() {
-  static CAN_RxHeaderTypeDef rx_header;
+  CAN_RxHeaderTypeDef rx_header;
   LIBRM_STM32_HAL_ASSERT(HAL_CAN_GetRxMessage(hcan_, CAN_RX_FIFO0, &rx_header, rx_buffer_.data.data()));
+
   auto &device_list = GetDeviceListByRxStdid(rx_header.StdId);
   if (device_list.empty()) {
     return;
   }
+
+  // 设置rx_buffer_成员（只有在有设备监听时才需要）
   rx_buffer_.rx_std_id = rx_header.StdId;
   rx_buffer_.dlc = rx_header.DLC;
+
+  // 遍历并调用所有注册设备的回调
   for (auto &device : device_list) {
     device->RxCallback(&rx_buffer_);
   }
