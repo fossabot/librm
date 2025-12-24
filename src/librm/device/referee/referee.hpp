@@ -32,7 +32,7 @@
 #include "protocol_v170.hpp"
 // implement and add more revisions here
 
-#include <vector>
+#include <cstring>
 #include <functional>
 
 #include <etl/pseudo_moving_average.h>
@@ -138,10 +138,12 @@ class Referee : public Device {
             // 裁判系统仍然在线
             ReportStatus(kOk);
             // 把数据拷贝到反序列化缓冲区对应的结构体中
-            memcpy(reinterpret_cast<u8 *>(&deserialize_buffer_) +
-                       referee_protocol_memory_map<revision>.at(cmdid_this_time_),
-                   valid_data_so_far_.data() + kRefProtocolHeaderLen + kRefProtocolCmdIdLen, data_len_this_time_);
-            // 触发用户注册的回调函数
+            const usize member_offset = referee_protocol_memory_map_.map.at(cmdid_this_time_);
+            u8 *dest_ptr = reinterpret_cast<u8 *>(&deserialize_buffer_) + member_offset;
+            u8 *src_ptr = valid_data_so_far_.data() + kRefProtocolHeaderLen + kRefProtocolCmdIdLen;
+            std::memcpy(dest_ptr, src_ptr, data_len_this_time_);
+
+            //  触发用户注册的回调函数
             for (auto &cb : rx_callbacks_) {
               if (cb) {
                 cb(cmdid_this_time_, seq_this_time_);
@@ -171,6 +173,7 @@ class Referee : public Device {
 
  private:
   RefereeProtocol<revision> deserialize_buffer_{};
+  RefereeProtocolMemoryMap<revision> referee_protocol_memory_map_;
   usize valid_data_so_far_idx_{0};
   usize data_len_this_time_{0};
   usize cmdid_this_time_{0};

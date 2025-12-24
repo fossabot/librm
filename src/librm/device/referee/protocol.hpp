@@ -34,15 +34,12 @@
 
 namespace rm::device {
 
-constexpr auto kRefProtocolHeaderSof = 0xa5;
-constexpr auto kRefProtocolFrameMaxLen = 128;
-constexpr auto kRefProtocolHeaderLen = 5;
-constexpr auto kRefProtocolCmdIdLen = 2;
-constexpr auto kRefProtocolCrc16Len = 2;
-constexpr auto kRefProtocolAllMetadataLen = kRefProtocolHeaderLen + kRefProtocolCmdIdLen + kRefProtocolCrc16Len;
-
-constexpr int kRefProtocolMaxCmdIdEntries =
-    40;  ///< 这个数字决定了 referee_protocol_memory_map 的最大容量，详情见下面的注释。
+constexpr u8 kRefProtocolHeaderSof = 0xa5;
+constexpr int kRefProtocolFrameMaxLen = 128;
+constexpr int kRefProtocolHeaderLen = 5;
+constexpr int kRefProtocolCmdIdLen = 2;
+constexpr int kRefProtocolCrc16Len = 2;
+constexpr int kRefProtocolAllMetadataLen = kRefProtocolHeaderLen + kRefProtocolCmdIdLen + kRefProtocolCrc16Len;
 
 /**
  * @brief 裁判系统协议版本
@@ -68,10 +65,7 @@ struct RefereeProtocol {};
  * @brief 裁判系统协议内存映射，记录了每个命令码对应的数据结构在 RefereeProtocol 中的偏移量
  */
 template <RefereeRevision revision>
-extern const etl::unordered_map<
-    u16, usize,
-    kRefProtocolMaxCmdIdEntries>  ///< 目前来看裁判系统协议的命令码数量不会超过这么多，如果以后超过这个数字了可以调大。
-    referee_protocol_memory_map{};
+struct RefereeProtocolMemoryMap {};
 
 }  // namespace rm::device
 
