@@ -1,6 +1,8 @@
 import { themes as prismThemes } from "prism-react-renderer";
 import type { Config } from "@docusaurus/types";
 import type * as Preset from "@docusaurus/preset-classic";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
 
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
@@ -8,6 +10,17 @@ const config: Config = {
   title: "Under construction 🚧",
   tagline: "",
   favicon: "img/favicon.ico",
+
+  // KaTeX stylesheets for math equations
+  stylesheets: [
+    {
+      href: "https://cdn.jsdelivr.net/npm/katex@0.13.24/dist/katex.min.css",
+      type: "text/css",
+      integrity:
+        "sha384-odtC+0UGzzFL/6PNoE8rX/SPcQDXBJ+uRepguP4QkPCm2LBxH3FA3y+fKSiJ+AmM",
+      crossorigin: "anonymous",
+    },
+  ],
 
   // Set the production url of your site here
   url: "https://librm.xduirobot.cc/",
@@ -41,6 +54,8 @@ const config: Config = {
           // Remove this to remove the "edit this page" links.
           editUrl: "https://github.com/XDU-IRobot/librm/tree/main/docs/",
           routeBasePath: "/",
+          remarkPlugins: [remarkMath],
+          rehypePlugins: [rehypeKatex],
         },
         // blog: {
         //   showReadingTime: true,
