@@ -70,8 +70,8 @@ void PID::Update(f32 set, f32 ref, f32 dt) {
   p_out_ = calc_kp * error_[0];
 
   // i
-  trapezoid_ = (error_[0] + error_[1]) / 2 * dt_;           // 梯形积分
-  dynamic_ki_ = SafeDiv(calc_ki, 1 + std::abs(error_[0]));  // 变速积分
+  trapezoid_ = (error_[0] + error_[1]) / 2 * dt_;       // 梯形积分
+  dynamic_ki_ = SafeDiv(ki_, 1 + std::abs(error_[0]));  // 变速积分
   i_out_ += calc_ki * trapezoid_;
   i_out_ = Clamp(i_out_, -max_iout_, max_iout_);
 
@@ -116,8 +116,8 @@ void PID::UpdateExtDiff(f32 set, f32 ref, f32 external_diff, f32 dt) {
   p_out_ = calc_kp * error_[0];
 
   // i
-  trapezoid_ = (error_[0] + error_[1]) / 2 * dt_;           // 梯形积分
-  dynamic_ki_ = SafeDiv(calc_ki, 1 + std::abs(error_[0]));  // 变速积分
+  trapezoid_ = (error_[0] + error_[1]) / 2 * dt_;       // 梯形积分
+  dynamic_ki_ = SafeDiv(ki_, 1 + std::abs(error_[0]));  // 变速积分
   i_out_ += calc_ki * trapezoid_;
   i_out_ = Clamp(i_out_, -max_iout_, max_iout_);
 
