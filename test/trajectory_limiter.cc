@@ -24,7 +24,7 @@
 
 #include <gtest/gtest.h>
 
-#include "librm/modules/trajectory_limiter.hpp"
+#include "librm.hpp"
 
 using namespace rm;
 using namespace rm::modules;

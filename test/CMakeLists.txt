@@ -23,6 +23,7 @@ find_package(GTest REQUIRED)
 
 add_executable(librm_tests
   trajectory_limiter.cc
+  keyboard_handler.cc
 )
 
 target_link_libraries(librm_tests PRIVATE
