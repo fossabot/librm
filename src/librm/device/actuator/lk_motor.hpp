@@ -152,6 +152,15 @@ class LkMotor : public CanDevice {
     can_->Write(0x140 + id_, tx_buffer_, 8);
   }
 
+  /**
+   * @brief  标准化电流控制接口（等同于力矩控制），MS型号电机不支持
+   * @param  torque_nm  期望力矩，单位：Nm
+   */
+  template <LkMotorType t = type, std::enable_if_t<t != LkMotorType::kMS, int> = 0>
+  void SetCurrent(f32 torque_nm) {
+    SetTorque(torque_nm);
+  }
+
   // TODO: 还有一大堆控制模式懒得写了，有需要再说
 
   /**
@@ -177,7 +186,27 @@ class LkMotor : public CanDevice {
     can_->Write(0x140 + id_, tx_buffer_, 8);
   }
 
-  /** 取值函数 **/
+  /** 标准化API - 取值函数 **/
+  // 标准化接口
+  [[nodiscard]] f32 position() const { return feedback_.position_rad; }
+  [[nodiscard]] f32 speed() const { return (f32)feedback_.speed_rad_ps; }
+  
+  struct FeedbackRaw {
+    i8 temperature;
+    f32 voltage;
+    i16 power;
+    f32 iq;
+    i16 speed_rad_ps;
+    f32 position_rad;
+    bool enabled;
+  };
+  [[nodiscard]] auto feedback_raw() const {
+    return FeedbackRaw{feedback_.temperature, feedback_.voltage, feedback_.power,
+                       feedback_.iq, feedback_.speed_rad_ps, feedback_.position_rad,
+                       feedback_.enabled};
+  }
+  
+  // 保留旧接口以维持向后兼容性
   [[nodiscard]] const auto &feedback() const { return feedback_; }
   /*************/
 

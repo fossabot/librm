@@ -173,12 +173,28 @@ class DjiMotor : public CanDevice {
     }
   }
 
-  /** 取值函数 **/
+  /** 标准化API - 取值函数 **/
+  // 标准化接口
+  [[nodiscard]] f32 position() const { return (f32)this->encoder_ / kMaxEncoderValue * M_PI * 2; }
+  [[nodiscard]] f32 speed() const { return (f32)this->rpm_ * M_PI / 30.f; }
+  [[nodiscard]] f32 encoder_raw() const { return (f32)this->encoder_; }
+  [[nodiscard]] f32 encoder_raw_wrapped() const { return (f32)this->encoder_; }
+  
+  struct FeedbackRaw {
+    u16 encoder;
+    i16 rpm;
+    i16 current;
+    u8 temperature;
+  };
+  [[nodiscard]] auto feedback_raw() const {
+    return FeedbackRaw{this->encoder_, this->rpm_, this->current_, this->temperature_};
+  }
+  
+  // 保留旧接口以维持向后兼容性
   [[nodiscard]] u16 encoder() const { return this->encoder_; }
   [[nodiscard]] i16 rpm() const { return this->rpm_; }
   [[nodiscard]] i16 current() const { return this->current_; }
   [[nodiscard]] u8 temperature() const { return this->temperature_; }
-
   [[nodiscard]] f32 pos_degree() const { return (f32)this->encoder() / kMaxEncoderValue * 360.f; }
   [[nodiscard]] f32 pos_rad() const { return (f32)this->encoder() / kMaxEncoderValue * M_PI * 2; }
   /*************/

@@ -145,11 +145,29 @@ class Go8010Motor : public Device {
   ~Go8010Motor() = default;
 
   void SetTau(f32 tau);
+  
+  /**
+   * @brief  标准化电流控制接口（等同于SetTau）
+   * @param  torque_nm  期望扭矩，单位：Nm
+   */
+  void SetCurrent(f32 torque_nm) {
+    SetTau(torque_nm);
+  }
 
   void SendCommend();
 
   void RxCallback(const std::vector<u8> &data, u16 rx_len);
 
+  /** 标准化API - 取值函数 **/
+  // 标准化接口
+  [[nodiscard]] f32 position() { return this->recv_data_.pos / 6.33f; }
+  [[nodiscard]] f32 speed() { return this->recv_data_.vel / 6.33f; }
+  
+  [[nodiscard]] auto feedback_raw() {
+    return recv_data_;
+  }
+  
+  // 保留旧接口以维持向后兼容性
   [[nodiscard]] f32 tau() { return this->recv_data_.tau / 6.33f; }
   [[nodiscard]] f32 vel() { return this->recv_data_.vel / 6.33f; }
   [[nodiscard]] f32 pos() { return this->recv_data_.pos / 6.33f; }

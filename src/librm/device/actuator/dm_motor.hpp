@@ -168,6 +168,35 @@ class DmMotor final : public CanDevice {
   }
 
   /**
+   * @brief  标准化MIT控制接口
+   * @tparam mode               控制模式
+   * @param  pos_rad            期望位置
+   * @param  speed_rad_per_sec  期望速度
+   * @param  torque_offset_nm   扭矩偏置
+   * @param  kp                 比例系数
+   * @param  kd                 微分系数
+   */
+  template <DmMotorControlMode mode = control_mode,
+            typename std::enable_if_t<mode == DmMotorControlMode::kMit, int> = 0>
+  void SetMit(f32 pos_rad, f32 speed_rad_per_sec, f32 torque_offset_nm, f32 kp, f32 kd) {
+    SetPosition(pos_rad, speed_rad_per_sec, torque_offset_nm, kp, kd);
+  }
+
+  /**
+   * @brief  标准化MIT控制接口（所有模式都可调用）
+   * @param  pos_rad            期望位置
+   * @param  speed_rad_per_sec  期望速度
+   * @param  torque_offset_nm   扭矩偏置
+   * @param  kp                 比例系数
+   * @param  kd                 微分系数
+   */
+  template <DmMotorControlMode mode = control_mode,
+            typename std::enable_if_t<mode == DmMotorControlMode::kMit, int> = 0>
+  void Set(f32 pos_rad, f32 speed_rad_per_sec, f32 torque_offset_nm, f32 kp, f32 kd) {
+    SetPosition(pos_rad, speed_rad_per_sec, torque_offset_nm, kp, kd);
+  }
+
+  /**
    * @brief  速度位置模式的控制函数
    * @tparam mode                   控制模式
    * @param  position_rad           期望位置
@@ -209,7 +238,24 @@ class DmMotor final : public CanDevice {
     this->can_->Write(this->settings_.slave_id, this->tx_buffer_, 8);
   }
 
-  /** 取值函数 **/
+  /** 标准化API - 取值函数 **/
+  // 标准化接口
+  [[nodiscard]] f32 position() const { return position_; }
+  [[nodiscard]] f32 speed() const { return speed_; }
+  
+  struct FeedbackRaw {
+    u8 status;
+    f32 position;
+    f32 speed;
+    f32 torque;
+    u8 mos_temperature;
+    u8 coil_temperature;
+  };
+  [[nodiscard]] auto feedback_raw() const {
+    return FeedbackRaw{status_, position_, speed_, torque_, mos_temperature_, coil_temperature_};
+  }
+  
+  // 保留旧接口以维持向后兼容性
   [[nodiscard]] u8 status() const { return status_; }
   [[nodiscard]] f32 pos() const { return position_; }
   [[nodiscard]] f32 vel() const { return speed_; }

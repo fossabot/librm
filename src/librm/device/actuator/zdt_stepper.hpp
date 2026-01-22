@@ -80,6 +80,13 @@ class ZdtStepper : public Device {
    * @brief    获取电机状态
    */
   [[nodiscard]] auto feedback() { return feedback_; }
+  
+  /** 标准化API - 取值函数 **/
+  // 标准化接口
+  [[nodiscard]] f32 position() { return feedback_.pos; }
+  [[nodiscard]] f32 speed() { return feedback_.vel; }
+  
+  [[nodiscard]] auto feedback_raw() { return feedback_; }
 
  private:
   void RxCallback(const std::vector<u8> &data, u16 rx_len);

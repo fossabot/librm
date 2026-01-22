@@ -282,6 +282,24 @@ class DirectDriveMotor : public CanDevice {
   static void ResetAll();
   static void SendCommand();
 
+  /** 标准化API - 取值函数 **/
+  // 标准化接口
+  [[nodiscard]] inline f32 position() const { return feedback_.encoder * 2.f * 3.1415926f / 32768.f; }
+  [[nodiscard]] inline f32 speed() const { return feedback_.rpm * 3.1415926f / 30.f; }
+  [[nodiscard]] inline f32 encoder_raw() const { return (f32)feedback_.encoder; }
+  [[nodiscard]] inline f32 encoder_raw_wrapped() const { return (f32)feedback_.encoder; }
+  
+  struct FeedbackRaw {
+    f32 rpm;
+    f32 iq;
+    u16 encoder;
+    f32 master_voltage;
+  };
+  [[nodiscard]] inline auto feedback_raw() const {
+    return FeedbackRaw{feedback_.rpm, feedback_.iq, feedback_.encoder, feedback_.master_voltage};
+  }
+  
+  // 保留旧接口以维持向后兼容性
   [[nodiscard]] inline ErrorCode error() const { return error_code_; }
   [[nodiscard]] inline f32 rpm() const { return feedback_.rpm; }
   [[nodiscard]] inline f32 iq() const { return feedback_.iq; }
