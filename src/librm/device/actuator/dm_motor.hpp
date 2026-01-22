@@ -183,7 +183,8 @@ class DmMotor final : public CanDevice {
   }
 
   /**
-   * @brief  标准化MIT控制接口（所有模式都可调用）
+   * @brief  标准化MIT控制接口（别名）
+   * @tparam mode               控制模式
    * @param  pos_rad            期望位置
    * @param  speed_rad_per_sec  期望速度
    * @param  torque_offset_nm   扭矩偏置
@@ -193,7 +194,7 @@ class DmMotor final : public CanDevice {
   template <DmMotorControlMode mode = control_mode,
             typename std::enable_if_t<mode == DmMotorControlMode::kMit, int> = 0>
   void Set(f32 pos_rad, f32 speed_rad_per_sec, f32 torque_offset_nm, f32 kp, f32 kd) {
-    SetPosition(pos_rad, speed_rad_per_sec, torque_offset_nm, kp, kd);
+    SetMit(pos_rad, speed_rad_per_sec, torque_offset_nm, kp, kd);
   }
 
   /**
