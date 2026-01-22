@@ -35,6 +35,7 @@
 #include <unordered_map>
 #include <cstring>
 #include <chrono>
+#include <cmath>
 
 #include "librm/core/typedefs.hpp"
 #include "librm/device/can_device.hpp"
@@ -284,8 +285,8 @@ class DirectDriveMotor : public CanDevice {
 
   /** 标准化API - 取值函数 **/
   // 标准化接口
-  [[nodiscard]] inline f32 position() const { return feedback_.encoder * 2.f * 3.1415926f / 32768.f; }
-  [[nodiscard]] inline f32 speed() const { return feedback_.rpm * 3.1415926f / 30.f; }
+  [[nodiscard]] inline f32 position() const { return feedback_.encoder * 2.f * M_PI / 32768.f; }
+  [[nodiscard]] inline f32 speed() const { return feedback_.rpm * M_PI / 30.f; }
   [[nodiscard]] inline f32 encoder_raw() const { return (f32)feedback_.encoder; }
   [[nodiscard]] inline f32 encoder_raw_wrapped() const { return (f32)feedback_.encoder; }
   
@@ -305,7 +306,7 @@ class DirectDriveMotor : public CanDevice {
   [[nodiscard]] inline f32 iq() const { return feedback_.iq; }
   [[nodiscard]] inline u16 encoder() const { return feedback_.encoder; }
   [[nodiscard]] inline f32 pos_deg() const { return feedback_.encoder * 360.f / 32768.f; }
-  [[nodiscard]] inline f32 pos_rad() const { return feedback_.encoder * 2.f * 3.1415926f / 32768.f; }
+  [[nodiscard]] inline f32 pos_rad() const { return feedback_.encoder * 2.f * M_PI / 32768.f; }
   [[nodiscard]] inline f32 master_voltage() const { return feedback_.master_voltage; }
 
  private:

@@ -49,6 +49,7 @@
 #ifndef LIBRM_DEVICE_ACTUATOR_DJI_MOTOR_HPP
 #define LIBRM_DEVICE_ACTUATOR_DJI_MOTOR_HPP
 
+#include <cmath>
 #include <etl/unordered_map.h>
 
 #include "librm/device/can_device.hpp"
