@@ -24,12 +24,11 @@ for (;;) {
   wheel_motor.SetCurrent(-8000);
   friction_motor.SetCurrent(3000);
 
-  // 统一发送控制指令（发送所有大疆电机）
-  rm::device::DjiMotor<>::SendCommand();
+  // 统一发送控制指令（发送所有 CAN 总线上的所有大疆电机）
+  rm::device::DjiMotorBase::SendCommand();
 
-  // 或者只发送特定型号
-  // rm::device::GM6020::SendCommand();
-  // rm::device::M3508::SendCommand();
+  // 或者只发送特定 CAN 总线上的大疆电机
+  // rm::device::DjiMotorBase::SendCommand(can1);
 
   // 读取反馈
   uint16_t encoder = yaw_motor.encoder();  // 0-8191
@@ -66,7 +65,7 @@ osDelay(10);
 
 for (;;) {
   // MIT 模式控制：位置(rad)、速度(rad/s)、前馈力矩(N·m)、kp、kd
-  dm_motor.SetPosition(1.5f, 2.0f, 0.5f, 10.0f, 1.0f);
+  dm_motor.SetMitCommand(1.5f, 2.0f, 0.5f, 10.0f, 1.0f);
 
   // 读取反馈
   float pos = dm_motor.pos();      // rad

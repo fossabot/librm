@@ -67,7 +67,9 @@ f32 Deadline(f32 value, f32 min_value, f32 max_value);
  * @param  max_value 上限
  * @return 若输入值超出规定的范围，就返回最近的边界值，否则返回原值
  */
-inline f32 Clamp(f32 input, f32 min_value, f32 max_value) { return std::clamp(input, min_value, max_value); }
+inline __attribute__((always_inline)) f32 Clamp(f32 input, f32 min_value, f32 max_value) {
+  return std::clamp(input, min_value, max_value);
+}
 
 /**
  * @brief   把输入值循环限制在区间 [min_value, max_value] 内

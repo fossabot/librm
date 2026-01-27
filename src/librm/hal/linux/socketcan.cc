@@ -197,7 +197,8 @@ void SocketCan::Write(u16 id, const u8 *data, usize size) {
   }
 
   // 连续失败后抛出异常，交由上层处理
-  rm::Throw(std::runtime_error(netdev_ + " write error"));
+  const auto error_message = netdev_ + " write error: " + std::strerror(errno);
+  rm::Throw(std::runtime_error(error_message));
 }
 
 /**
