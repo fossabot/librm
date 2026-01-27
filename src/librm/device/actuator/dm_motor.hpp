@@ -42,7 +42,7 @@ namespace rm::device {
  * @brief 达妙电机状态
  */
 enum class DmMotorStatus {
-  kUnable = 0x0,
+  kDisable = 0x0,
   kEnable = 0x1,
   kOverVoltage = 0x8,
   kUnderVoltage = 0x9,
@@ -135,78 +135,81 @@ class DmMotor final : public CanDevice {
       : CanDevice(can, settings.master_id), settings_(settings), reversed_(reversed) {}
 
   /**
-   * @brief  MIT模式的控制函数
+   * @brief  MIT模式下发送控制命令
    * @tparam mode                   控制模式
    * @param  position_rad           期望位置
-   * @param  max_speed_rad_per_sec  控制过程中的最大速度
-   * @param  accel_torque_nm        加速扭矩
-   * @param  kp                     比例系数
-   * @param  kd                     微分系数
+   * @param  speed_rad_per_sec      期望速度
+   * @param  torque_ff_nm           前馈力矩
+   * @param  kp                     位置误差比例系数
+   * @param  kd                     速度误差比例系数
    */
   template <DmMotorControlMode mode = control_mode,
             typename std::enable_if_t<mode == DmMotorControlMode::kMit, int> = 0>
-  void SetPosition(f32 position_rad, f32 max_speed_rad_per_sec, f32 accel_torque_nm, f32 kp, f32 kd) {
-    if (this->reversed_) {
+  void SetMitCommand(f32 position_rad, f32 speed_rad_per_sec, f32 torque_ff_nm, f32 kp, f32 kd) {
+    if (reversed_) {
       position_rad = -position_rad;
-      max_speed_rad_per_sec = -max_speed_rad_per_sec;
+      speed_rad_per_sec = -speed_rad_per_sec;
+      torque_ff_nm = -torque_ff_nm;
     }
-    u16 pos_tmp = modules::FloatToInt(position_rad, -this->settings_.p_max, this->settings_.p_max, 16);
-    u16 vel_tmp = modules::FloatToInt(max_speed_rad_per_sec, -this->settings_.v_max, this->settings_.v_max, 12);
-    u16 kp_tmp = modules::FloatToInt(kp, this->settings_.kp_range.first, this->settings_.kp_range.second, 12);
-    u16 kd_tmp = modules::FloatToInt(kd, this->settings_.kd_range.first, this->settings_.kd_range.second, 12);
-    u16 tor_tmp = modules::FloatToInt(accel_torque_nm, -this->settings_.t_max, this->settings_.t_max, 12);
 
-    this->tx_buffer_[0] = (pos_tmp >> 8);
-    this->tx_buffer_[1] = pos_tmp;
-    this->tx_buffer_[2] = (vel_tmp >> 4);
-    this->tx_buffer_[3] = ((vel_tmp & 0xf) << 4) | (kp_tmp >> 8);
-    this->tx_buffer_[4] = kp_tmp;
-    this->tx_buffer_[5] = (kd_tmp >> 4);
-    this->tx_buffer_[6] = ((kd_tmp & 0xf) << 4) | (tor_tmp >> 8);
-    this->tx_buffer_[7] = tor_tmp;
-    this->can_->Write(this->settings_.slave_id, this->tx_buffer_, 8);
+    using modules::FloatToInt;
+    const u16 pos_tmp = FloatToInt(position_rad, -settings_.p_max, settings_.p_max, 16);
+    const u16 vel_tmp = FloatToInt(speed_rad_per_sec, -settings_.v_max, settings_.v_max, 12);
+    const u16 kp_tmp = FloatToInt(kp, settings_.kp_range.first, settings_.kp_range.second, 12);
+    const u16 kd_tmp = FloatToInt(kd, settings_.kd_range.first, settings_.kd_range.second, 12);
+    const u16 tor_tmp = FloatToInt(torque_ff_nm, -settings_.t_max, settings_.t_max, 12);
+
+    tx_buffer_[0] = (pos_tmp >> 8);
+    tx_buffer_[1] = pos_tmp;
+    tx_buffer_[2] = (vel_tmp >> 4);
+    tx_buffer_[3] = ((vel_tmp & 0xf) << 4) | (kp_tmp >> 8);
+    tx_buffer_[4] = kp_tmp;
+    tx_buffer_[5] = (kd_tmp >> 4);
+    tx_buffer_[6] = ((kd_tmp & 0xf) << 4) | (tor_tmp >> 8);
+    tx_buffer_[7] = tor_tmp;
+    can_->Write(settings_.slave_id, tx_buffer_, 8);
   }
 
   /**
-   * @brief  速度位置模式的控制函数
+   * @brief  速度位置模式下发送控制命令
    * @tparam mode                   控制模式
    * @param  position_rad           期望位置
-   * @param  max_speed_rad_per_sec  控制过程中的最大速度
+   * @param  speed_rad_per_sec      期望速度
    */
   template <DmMotorControlMode mode = control_mode,
             typename std::enable_if_t<mode == DmMotorControlMode::kSpeedPosition, int> = 0>
-  void SetPosition(f32 position_rad, f32 max_speed_rad_per_sec) {
-    if (this->reversed_) {
+  void SetPosition(f32 position_rad, f32 speed_rad_per_sec) {
+    if (reversed_) {
       position_rad = 0 - position_rad;
     }
-    memcpy(this->tx_buffer_, &position_rad, 4);
-    memcpy(this->tx_buffer_ + 4, &max_speed_rad_per_sec, 4);
-    this->can_->Write(this->settings_.slave_id, this->tx_buffer_, 8);
+    memcpy(tx_buffer_, &position_rad, 4);
+    memcpy(tx_buffer_ + 4, &speed_rad_per_sec, 4);
+    can_->Write(settings_.slave_id, tx_buffer_, 8);
   }
 
   /**
-   * @brief  速度模式的控制函数
+   * @brief  速度模式下发送控制命令
    * @tparam mode               控制模式
    * @param  speed_rad_per_sec  期望速度
    */
   template <DmMotorControlMode mode = control_mode,
             typename std::enable_if_t<mode == DmMotorControlMode::kSpeed, int> = 0>
   void SetSpeed(f32 speed_rad_per_sec) {
-    if (this->reversed_) {
+    if (reversed_) {
       speed_rad_per_sec = -speed_rad_per_sec;
     }
-    memcpy(this->tx_buffer_, &speed_rad_per_sec, 4);
-    this->can_->Write(this->settings_.slave_id, this->tx_buffer_, 4);
+    memcpy(tx_buffer_, &speed_rad_per_sec, 4);
+    can_->Write(settings_.slave_id, tx_buffer_, 4);
   }
 
   /**
-   * @brief 向电机发送功能指令
+   * @brief 向电机发送功能指令，可以发送的指令见DmMotorInstructions枚举定义
    * @param instruction 要发送的指令
    */
   void SendInstruction(DmMotorInstructions instruction) {
-    memset(this->tx_buffer_, 0xff, 8);
-    this->tx_buffer_[7] = static_cast<u8>(instruction);
-    this->can_->Write(this->settings_.slave_id, this->tx_buffer_, 8);
+    memset(tx_buffer_, 0xff, 8);
+    tx_buffer_[7] = static_cast<u8>(instruction);
+    can_->Write(settings_.slave_id, tx_buffer_, 8);
   }
 
   /** 取值函数 **/
@@ -225,20 +228,16 @@ class DmMotor final : public CanDevice {
    */
   void RxCallback(const hal::CanFrame *msg) override {
     ReportStatus(kOk);
-    int p_int = (msg->data[1] << 8) | msg->data[2];
-    int v_int = (msg->data[3] << 4) | (msg->data[4] >> 4);
-    int t_int = ((msg->data[4] & 0xf) << 8) | msg->data[5];
-    this->status_ = msg->data[0] | 0b00001111;
-    this->position_ = modules::IntToFloat(p_int, -this->settings_.p_max, this->settings_.p_max, 16);
-    this->speed_ = modules::IntToFloat(v_int, -this->settings_.v_max, this->settings_.v_max, 12);
-    this->torque_ = modules::IntToFloat(t_int, -this->settings_.t_max, this->settings_.t_max, 12);
-    this->mos_temperature_ = msg->data[6];
-    this->coil_temperature_ = msg->data[7];
-    if (this->reversed_) {
-      this->position_ = -this->position_;
-      this->speed_ = -this->speed_;
-      this->torque_ = -this->torque_;
-    }
+    const int p_int = (msg->data[1] << 8) | msg->data[2];
+    const int v_int = (msg->data[3] << 4) | (msg->data[4] >> 4);
+    const int t_int = ((msg->data[4] & 0xf) << 8) | msg->data[5];
+    status_ = msg->data[0] | 0b00001111;
+    using modules::IntToFloat;
+    position_ = IntToFloat(p_int, -settings_.p_max, settings_.p_max, 16);
+    speed_ = IntToFloat(v_int, -settings_.v_max, settings_.v_max, 12);
+    torque_ = IntToFloat(t_int, -settings_.t_max, settings_.t_max, 12);
+    mos_temperature_ = msg->data[6];
+    coil_temperature_ = msg->data[7];
   }
 
   DmMotorSettings<control_mode> settings_{};
