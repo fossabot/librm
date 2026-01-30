@@ -122,6 +122,8 @@ struct DmMotorSettings<DmMotorControlMode::kMit> {
 template <DmMotorControlMode control_mode>
 class DmMotor final : public CanDevice {
  public:
+  using Settings = DmMotorSettings<control_mode>;
+
   DmMotor() = delete;
   DmMotor(DmMotor &&other) noexcept = default;
   ~DmMotor() override = default;
@@ -131,7 +133,7 @@ class DmMotor final : public CanDevice {
    * @param settings    电机参数
    * @param reversed    是否反转
    */
-  DmMotor(hal::CanInterface &can, DmMotorSettings<control_mode> settings, bool reversed = false)
+  DmMotor(hal::CanInterface &can, Settings settings, bool reversed = false)
       : CanDevice(can, settings.master_id), settings_(settings), reversed_(reversed) {}
 
   /**
@@ -252,6 +254,10 @@ class DmMotor final : public CanDevice {
   u8 coil_temperature_{};  // 电机线圈的平均温度
   /***********************/
 };
+
+using DmMotorMit = DmMotor<DmMotorControlMode::kMit>;
+using DmMotorSpeedPosition = DmMotor<DmMotorControlMode::kSpeedPosition>;
+using DmMotorSpeed = DmMotor<DmMotorControlMode::kSpeed>;
 
 }  // namespace rm::device
 
