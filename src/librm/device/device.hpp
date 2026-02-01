@@ -101,9 +101,9 @@ class Device {
   void ReportStatus(Status status);
 
  private:
-  etl::string<kMaxNameLength> name_{};       ///< 设备名称，最大32字节
-  Status online_status_{kUnknown};           ///< 设备当前在线状态
-  time_point last_seen_{time_point::min()};  ///< 设备最后一次上报状态的时间点
+  etl::string<kMaxNameLength> name_{};                   ///< 设备名称，最大32字节
+  Status online_status_{kUnknown};                       ///< 设备当前在线状态
+  time_point last_seen_{time_point::min()};              ///< 设备最后一次上报状态的时间点
   duration heartbeat_timeout_{std::chrono::seconds(1)};  ///< 心跳超时时间，超过这个时间没有收到心跳则认为设备离线
 };
 
@@ -112,8 +112,9 @@ class Device {
  * @tparam kMaxDevices 最大容纳的设备数量，按需设置
  * @tparam kUseStdFunctionCallback 是否使用 std::function 作为回调类型，默认为 true。如果设置为 false 则使用
  * etl::delegate（类似C++26 std::function_ref），无动态内存分配但使用起来不如 std::function 方便
+ * @tparam kMaxSummaryStringLength 设备状态摘要字符串的最大长度，默认为512字节
  */
-template <size_t kMaxDevices, bool kUseStdFunctionCallback = true>
+template <size_t kMaxDevices, bool kUseStdFunctionCallback = true, size_t kMaxSummaryStringLength = 512>
 class DeviceManager {
   using CallbackType =                                   //
       std::conditional_t<kUseStdFunctionCallback,        //
@@ -148,11 +149,35 @@ class DeviceManager {
    */
   bool Update() {
     all_device_ok_ = true;
+
+    // 清空状态列表
+    offline_devices_.clear();
+    fault_devices_.clear();
+    ok_devices_.clear();
+    unknown_devices_.clear();
+
     for (auto &entry : devices_) {
       const Device::Status current_status = entry.device->online_status();
       if (current_status != Device::kOk) {
         all_device_ok_ = false;
       }
+
+      // 根据状态添加到对应列表
+      switch (current_status) {
+        case Device::kOffline:
+          offline_devices_.push_back(entry.device);
+          break;
+        case Device::kFault:
+          fault_devices_.push_back(entry.device);
+          break;
+        case Device::kOk:
+          ok_devices_.push_back(entry.device);
+          break;
+        case Device::kUnknown:
+          unknown_devices_.push_back(entry.device);
+          break;
+      }
+
       // 设备状态发生变化，触发回调
       if (entry.prev_status != current_status) {
         for (const auto &callback : status_change_callbacks_) {
@@ -178,6 +203,92 @@ class DeviceManager {
   }
 
   /**
+   * @brief 根据状态获取设备列表
+   * @param status 设备状态
+   * @return 处于指定状态的设备列表（只读）
+   * @note 该列表在每次调用 Update() 时更新
+   */
+  const etl::vector<Device *, kMaxDevices> &GetDeviceListByStatus(Device::Status status) const {
+    switch (status) {
+      case Device::kOffline:
+        return offline_devices_;
+      case Device::kFault:
+        return fault_devices_;
+      case Device::kOk:
+        return ok_devices_;
+      case Device::kUnknown:
+      default:
+        return unknown_devices_;
+    }
+  }
+
+  /**
+   * @brief   获取设备状态摘要字符串
+   * @return  如果所有设备都正常，返回 "All devices OK."
+   *          否则返回各个状态分类的设备列表，例如 "Offline: motor1, motor2; Fault: sensor1; "
+   *          字符串默认长度限制为 512 字节，超出部分会被截断并添加 "..." 标记，
+   *          如果需要更长的摘要字符串可以调整模板参数 kMaxSummaryStringLength
+   */
+  etl::string<kMaxSummaryStringLength> GetSummaryString() const {
+    constexpr size_t kTruncationMarkLength = 3;  // "..." 的长度
+    etl::string<kMaxSummaryStringLength> summary;
+
+    if (all_device_ok_) {
+      return "All devices OK.";
+    }
+
+    // 辅助函数1：安全地追加字符串，如果空间不足则截断并返回 false
+    auto try_append = [&](const char *str) -> bool {
+      const size_t str_len = strlen(str);
+      // etl::string::available() -> 剩余容量 < 要追加的字符串长度 + 截断标记"..."长度？
+      if (summary.available() < str_len + kTruncationMarkLength) {
+        summary += "...";
+        return false;  // 空间不足，截断
+      }
+      summary += str;
+      return true;  // 追加成功
+    };
+
+    // 辅助函数2：追加一类设备列表（"Offline: dev1, dev2; "）
+    auto append_device_category = [&](const etl::vector<Device *, kMaxDevices> &devices,
+                                      const char *category_name) -> bool {
+      if (devices.empty()) {
+        return true;  // 这个类别没有设备，继续下一个
+      }
+
+      // 类别名称（"Offline: "）
+      if (!try_append(category_name)) {
+        return false;
+      }
+      if (!try_append(": ")) {
+        return false;
+      }
+
+      // 设备名称列表
+      for (size_t i = 0; i < devices.size(); ++i) {
+        if (!try_append(devices[i]->name().c_str())) {
+          return false;
+        }
+        if (i < devices.size() - 1) {
+          if (!try_append(", ")) {
+            return false;
+          }
+        }
+      }
+
+      // 追加类别结束符
+      return try_append("; ");
+    };
+
+    // 按顺序处理各个类别，任何一个类别截断都会终止后续处理
+    if (!append_device_category(offline_devices_, "Offline")) return summary;
+    if (!append_device_category(fault_devices_, "Fault")) return summary;
+    if (!append_device_category(unknown_devices_, "Unknown")) return summary;
+
+    return summary;
+  }
+
+  /**
    * @return 所有设备是否在线且正常工作
    */
   bool all_device_ok() const { return all_device_ok_; }
@@ -196,6 +307,12 @@ class DeviceManager {
   bool all_device_ok_{false};
   etl::vector<CallbackType, kMaxCallbacks> status_change_callbacks_;
   etl::vector<DeviceEntry, kMaxDevices> devices_;
+
+  // 按状态分类的设备列表
+  etl::vector<Device *, kMaxDevices> offline_devices_;
+  etl::vector<Device *, kMaxDevices> fault_devices_;
+  etl::vector<Device *, kMaxDevices> ok_devices_;
+  etl::vector<Device *, kMaxDevices> unknown_devices_;
 };
 
 }  // namespace rm::device
