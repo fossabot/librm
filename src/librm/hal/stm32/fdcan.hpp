@@ -37,12 +37,20 @@
 
 namespace rm::hal::stm32 {
 
-class FdCan : public CanInterface, detail::NonCopyable {
+/**
+ * @brief fdCAN类库
+ */
+class FdCan final : public CanInterface, detail::NonCopyable {
+  // 声明静态回调函数为友元，使其可以访问private方法
+  friend void FdCanRxFifo0MsgPendingCallback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs);
+
  public:
   explicit FdCan(FDCAN_HandleTypeDef &hfdcan);
+  ~FdCan() override;
 
-  FdCan() = default;
-  ~FdCan() override = default;
+  // 移动构造
+  FdCan(FdCan &&other) noexcept;
+  FdCan &operator=(FdCan &&other) noexcept;
 
   void SetFilter(u16 id, u16 mask) override;
   void Write(u16 id, const u8 *data, usize size) override;

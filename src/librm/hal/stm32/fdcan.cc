@@ -31,42 +31,48 @@
 
 #include "fdcan.hpp"
 
-#include <functional>
-#include <algorithm>
-
-#include <etl/unordered_map.h>
-
 #include "librm/device/can_device.hpp"
 #include "librm/hal/stm32/helper_macro.hpp"
 
-/**
- * @brief 存储各个hfdcan句柄对应的接收回调函数指针的map
- */
-static etl::unordered_map<FDCAN_HandleTypeDef *, std::function<void()>,
-                          5>  // 一般来说不会用到超过5条CAN总线的STM32，这里设为5应该够了
-    fn_cb_map;
+namespace rm::hal::stm32 {
 
 /**
- * @brief  把std::function转换为函数指针
- * @param  fn   要转换的函数
- * @param  hfdcan  HAL库的FDCAN_HandleTypeDef
- * @return      转换后的函数指针
- * @note
- * 背景：因为要用面向对象的方式对外设进行封装，所以回调函数必须存在于类内。但是存在于类内就意味着这个回调函数多了一个this参数，
- * 而HAL库要求的回调函数并没有这个this参数。通过std::bind，可以生成一个参数列表里没有this指针的std::function对象，而std::function
- * 并不能直接强转成函数指针。借助这个函数，可以把std::function对象转换成函数指针。然后就可以把这个类内的回调函数传给HAL库了。
+ * @brief 存储FDCAN1、FDCAN2、FDCAN3对应的FdCan实例指针
  */
-static pFDCAN_RxFifo0CallbackTypeDef StdFunctionToCallbackFunctionPtr(std::function<void()> fn,
-                                                                      FDCAN_HandleTypeDef *hfdcan) {
-  fn_cb_map[hfdcan] = std::move(fn);
-  return [](FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs) {
-    if (fn_cb_map.find(hfdcan) != fn_cb_map.end()) {
-      fn_cb_map[hfdcan]();
-    }
-  };
+static FdCan *fdcan_instances[3] = {nullptr, nullptr, nullptr};
+
+/**
+ * @brief  根据FDCAN实例地址获取fdcan_instances数组索引
+ * @param  hfdcan  HAL库的FDCAN_HandleTypeDef
+ * @return 数组索引（0、1或2），如果不是有效的FDCAN实例则返回-1
+ */
+__attribute__((always_inline)) static inline int GetFdCanIndex(FDCAN_HandleTypeDef *hfdcan) {
+  const auto instance = reinterpret_cast<uintptr_t>(hfdcan->Instance);
+  if (instance == FDCAN1_BASE) return 0;
+#if defined(FDCAN2_BASE)
+  if (instance == FDCAN2_BASE) return 1;
+#endif
+#if defined(FDCAN3_BASE)
+  if (instance == FDCAN3_BASE) return 2;
+#endif
+  return -1;
 }
 
-namespace rm::hal::stm32 {
+/**
+ * @brief  注册给HAL库的FDCAN接收回调函数
+ * @param  hfdcan  HAL库的FDCAN_HandleTypeDef
+ * @param  RxFifo0ITs  中断标志
+ */
+void FdCanRxFifo0MsgPendingCallback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs) {
+  const int fdcan_idx = GetFdCanIndex(hfdcan);
+  if (fdcan_idx >= 0) {
+    FdCan *instance = fdcan_instances[fdcan_idx];
+    if (instance != nullptr) {
+      instance->Fifo0MsgPendingCallback();
+    }
+  }
+}
+
 
 /**
  * @param hfdcan HAL库的CAN_HandleTypeDef
@@ -75,7 +81,41 @@ FdCan::FdCan(FDCAN_HandleTypeDef &hfdcan)
     : hfdcan_(&hfdcan),
       // 判断这个FDCAN句柄对应的外设是否被设置为FD模式
       fd_mode_{hfdcan.Init.FrameFormat == FDCAN_FRAME_FD_NO_BRS ||  //
-               hfdcan.Init.FrameFormat == FDCAN_FRAME_FD_BRS} {}
+               hfdcan.Init.FrameFormat == FDCAN_FRAME_FD_BRS} {
+  int idx = GetFdCanIndex(hfdcan_);
+  if (idx >= 0) {
+    fdcan_instances[idx] = this;
+  }
+}
+
+FdCan::~FdCan() {
+  Stop();
+  int idx = GetFdCanIndex(hfdcan_);
+  if (idx >= 0) {
+    fdcan_instances[idx] = nullptr;
+  }
+}
+
+FdCan::FdCan(FdCan &&other) noexcept : hfdcan_(other.hfdcan_), fd_mode_(other.fd_mode_) {
+  // 把全局数组里的指针指向新的自己
+  int idx = GetFdCanIndex(hfdcan_);
+  if (idx >= 0) {
+    fdcan_instances[idx] = this;
+  }
+}
+
+FdCan &FdCan::operator=(FdCan &&other) noexcept {
+  if (this != &other) {
+    hfdcan_ = other.hfdcan_;
+    const_cast<bool &>(fd_mode_) = other.fd_mode_;
+    // 把全局数组里的指针指向新的自己
+    int idx = GetFdCanIndex(hfdcan_);
+    if (idx >= 0) {
+      fdcan_instances[idx] = this;
+    }
+  }
+  return *this;
+}
 
 /**
  * @brief 设置过滤器
@@ -166,8 +206,8 @@ void FdCan::Begin() {
 
   LIBRM_STM32_HAL_ASSERT(HAL_FDCAN_ActivateNotification(hfdcan_, FDCAN_IT_RX_FIFO0_NEW_MESSAGE, 0));
   LIBRM_STM32_HAL_ASSERT(HAL_FDCAN_ActivateNotification(hfdcan_, FDCAN_IT_BUS_OFF, 0));
-  LIBRM_STM32_HAL_ASSERT(HAL_FDCAN_RegisterRxFifo0Callback(
-      hfdcan_, StdFunctionToCallbackFunctionPtr([this] { Fifo0MsgPendingCallback(); }, hfdcan_)));
+  LIBRM_STM32_HAL_ASSERT(
+      HAL_FDCAN_RegisterRxFifo0Callback(hfdcan_, FdCanRxFifo0MsgPendingCallback));
   LIBRM_STM32_HAL_ASSERT(HAL_FDCAN_Start(hfdcan_));
 }
 
