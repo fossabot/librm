@@ -73,7 +73,6 @@ void FdCanRxFifo0MsgPendingCallback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo
   }
 }
 
-
 /**
  * @param hfdcan HAL库的CAN_HandleTypeDef
  */
@@ -206,8 +205,7 @@ void FdCan::Begin() {
 
   LIBRM_STM32_HAL_ASSERT(HAL_FDCAN_ActivateNotification(hfdcan_, FDCAN_IT_RX_FIFO0_NEW_MESSAGE, 0));
   LIBRM_STM32_HAL_ASSERT(HAL_FDCAN_ActivateNotification(hfdcan_, FDCAN_IT_BUS_OFF, 0));
-  LIBRM_STM32_HAL_ASSERT(
-      HAL_FDCAN_RegisterRxFifo0Callback(hfdcan_, FdCanRxFifo0MsgPendingCallback));
+  LIBRM_STM32_HAL_ASSERT(HAL_FDCAN_RegisterRxFifo0Callback(hfdcan_, FdCanRxFifo0MsgPendingCallback));
   LIBRM_STM32_HAL_ASSERT(HAL_FDCAN_Start(hfdcan_));
 }
 
