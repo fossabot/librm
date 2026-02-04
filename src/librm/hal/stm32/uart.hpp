@@ -67,7 +67,7 @@ class Uart : public SerialInterface {
   UART_HandleTypeDef *huart_;                               ///< HAL库的UART句柄
   UartMode tx_mode_;
   UartMode rx_mode_;
-  std::vector<u8> rx_buf_[2];    ///< 双缓冲区接收数据
+  std::vector<u8> rx_buf_[2];  ///< 双缓冲区接收数据
   bool buffer_selector_{false};  ///< 当前接收使用的缓冲区选择器，false表示使用buf0，true表示使用buf1
 };
 
