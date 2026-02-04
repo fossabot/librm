@@ -31,10 +31,10 @@
 #include "librm/hal/stm32/hal.hpp"
 #if defined(HAL_UART_MODULE_ENABLED)
 
+#include <etl/vector.h>
+
 #include "librm/hal/serial_interface.hpp"
 #include "librm/core/typedefs.hpp"
-
-#include <unordered_map>
 
 namespace rm::hal::stm32 {
 
@@ -56,19 +56,19 @@ class Uart : public SerialInterface {
 
   void Begin() override;
   void Write(const u8 *data, usize size) override;
-  void AttachRxCallback(SerialRxCallbackFunction &callback) override;
+  void AttachRxCallback(SerialRxCallbackFunction callback) override;
   [[nodiscard]] const std::vector<u8> &rx_buffer() const override;
 
  private:
   void HalRxCpltCallback(u16 rx_len);
   void HalErrorCallback();
 
-  std::vector<SerialRxCallbackFunction *> rx_callbacks_;
-  UART_HandleTypeDef *huart_;
+  etl::vector<SerialRxCallbackFunction, 10> rx_callbacks_;  ///< 接收完成回调函数列表，最大10个，不够可以调大
+  UART_HandleTypeDef *huart_;                               ///< HAL库的UART句柄
   UartMode tx_mode_;
   UartMode rx_mode_;
-  std::vector<u8> rx_buf_[2];
-  bool buffer_selector_{false};
+  std::vector<u8> rx_buf_[2];    ///< 双缓冲区接收数据
+  bool buffer_selector_{false};  ///< 当前接收使用的缓冲区选择器，false表示使用buf0，true表示使用buf1
 };
 
 }  // namespace rm::hal::stm32

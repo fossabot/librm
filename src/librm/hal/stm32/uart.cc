@@ -31,6 +31,8 @@
 
 #include "uart.hpp"
 
+#include <unordered_map>
+
 #include "librm/hal/stm32/helper_macro.hpp"
 #include "librm/core/exception.hpp"
 
@@ -63,8 +65,8 @@ static std::unordered_map<UART_HandleTypeDef *, std::function<void(void)>> fn_er
  * 并不能直接强转成函数指针。借助这个函数，可以把std::function对象转换成函数指针。然后就可以把这个类内的回调函数传给HAL库了。
  */
 
-static auto StdFunctionToCallbackFunctionPtr(std::function<void(rm::u16)> fn,
-                                             UART_HandleTypeDef *huart) -> pUART_RxEventCallbackTypeDef {
+static auto StdFunctionToCallbackFunctionPtr(std::function<void(rm::u16)> fn, UART_HandleTypeDef *huart)
+    -> pUART_RxEventCallbackTypeDef {
   fn_cb_map[huart] = std::move(fn);
   return [](UART_HandleTypeDef *handle, rm::u16 rx_len) {
     if (fn_cb_map.find(handle) != fn_cb_map.end()) {
@@ -73,8 +75,8 @@ static auto StdFunctionToCallbackFunctionPtr(std::function<void(rm::u16)> fn,
   };
 }
 
-static auto StdFunctionToErrorCallbackFunctionPtr(std::function<void(void)> fn,
-                                                  UART_HandleTypeDef *huart) -> pUART_CallbackTypeDef {
+static auto StdFunctionToErrorCallbackFunctionPtr(std::function<void(void)> fn, UART_HandleTypeDef *huart)
+    -> pUART_CallbackTypeDef {
   fn_error_map[huart] = std::move(fn);
   return [](UART_HandleTypeDef *handle) {
     if (fn_error_map.find(handle) != fn_error_map.end()) {
@@ -165,7 +167,9 @@ void Uart::Write(const u8 *data, usize size) {
  * @brief 注册用户定义的接收完成回调函数
  * @param callback 回调函数
  */
-void Uart::AttachRxCallback(SerialRxCallbackFunction &callback) { this->rx_callbacks_.push_back(&callback); }
+void Uart::AttachRxCallback(SerialRxCallbackFunction callback) {
+  this->rx_callbacks_.emplace_back(std::move(callback));
+}
 
 /**
  * @return 接收缓冲区
@@ -198,8 +202,8 @@ void Uart::HalRxCpltCallback(u16 rx_len) {
   }
   // 调用外部重写的回调函数
   for (auto callback : this->rx_callbacks_) {
-    if (callback != nullptr) {
-      (*callback)(this->rx_buf_[this->buffer_selector_], rx_len);
+    if (callback) {
+      callback(this->rx_buf_[this->buffer_selector_], rx_len);
     }
   }
   // 切换缓冲区

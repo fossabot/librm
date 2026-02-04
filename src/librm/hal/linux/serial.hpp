@@ -78,7 +78,7 @@ class Serial : public hal::SerialInterface {
    * @note  出现缓冲区满、超时未收到数据两种情况时，这个回调函数会被调用
    * @param callback  接收完成回调函数
    */
-  void AttachRxCallback(SerialRxCallbackFunction &callback) override;
+  void AttachRxCallback(SerialRxCallbackFunction callback) override;
   [[nodiscard]] const std::vector<u8> &rx_buffer() const override;
 
   /**

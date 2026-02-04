@@ -98,7 +98,7 @@ void Serial::Write(const u8 *data, usize size) {
   }
 }
 
-void Serial::AttachRxCallback(SerialRxCallbackFunction &callback) { rx_callback_ = callback; }
+void Serial::AttachRxCallback(SerialRxCallbackFunction callback) { rx_callback_ = callback; }
 
 [[nodiscard]] const std::vector<u8> &Serial::rx_buffer() const { return rx_buffer_; }
 

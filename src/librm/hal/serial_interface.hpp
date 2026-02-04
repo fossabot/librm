@@ -63,7 +63,7 @@ class SerialInterface {
    * @brief 绑定接收完成回调函数
    * @param callback 回调函数
    */
-  virtual void AttachRxCallback(SerialRxCallbackFunction &callback) = 0;
+  virtual void AttachRxCallback(SerialRxCallbackFunction callback) = 0;
 
   /**
    * @brief 获取接收缓冲区
