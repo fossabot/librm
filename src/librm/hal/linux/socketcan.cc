@@ -209,10 +209,8 @@ void SocketCan::Write(u16 id, const u8 *data, usize size) {
 
   // 连续失败后抛出异常，交由上层处理
   int err = errno;
-  std::string error_msg = netdev_ + " write error: " + std::strerror(err) + 
-                          " (errno=" + std::to_string(err) + 
-                          ", id=0x" + std::to_string(id) + 
-                          ", size=" + std::to_string(size) + ")";
+  std::string error_msg = netdev_ + " write error: " + std::strerror(err) + " (errno=" + std::to_string(err) +
+                          ", id=0x" + std::to_string(id) + ", size=" + std::to_string(size) + ")";
   rm::Throw(std::runtime_error(error_msg));
 }
 
