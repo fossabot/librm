@@ -31,9 +31,11 @@
 #include <algorithm>
 #include <array>
 #include <cerrno>
+#include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <thread>
 
 #include "librm/core/exception.hpp"
 
@@ -164,7 +166,7 @@ void SocketCan::Write(u16 id, const u8 *data, usize size) {
   }
 
   const bool use_fd_frame = size > CAN_MAX_DLEN;
-  constexpr int kMaxRetry = 20;
+  constexpr int kMaxRetry = 50;  // 增加重试次数以应对缓冲区满的情况
 
   if (use_fd_frame) {
     struct ::canfd_frame frame {};
@@ -176,10 +178,15 @@ void SocketCan::Write(u16 id, const u8 *data, usize size) {
       if (::write(socket_fd_, &frame, sizeof(frame)) >= 0) {
         return;
       }
-      // 驱动反馈暂时性的阻塞时重试写入
-      if (errno != EAGAIN && errno != EINTR) {
-        break;
+      // 可重试的错误：EAGAIN, EINTR, ENOBUFS（缓冲区满）
+      if (errno == EAGAIN || errno == EINTR || errno == ENOBUFS) {
+        // 缓冲区满时等待一小段时间让驱动有机会发送
+        if (errno == ENOBUFS) {
+          std::this_thread::sleep_for(std::chrono::microseconds(100));
+        }
+        continue;
       }
+      break;  // 其他错误不重试
     }
   } else {
     struct ::can_frame frame {};
@@ -190,15 +197,23 @@ void SocketCan::Write(u16 id, const u8 *data, usize size) {
       if (::write(socket_fd_, &frame, sizeof(frame)) >= 0) {
         return;
       }
-      if (errno != EAGAIN && errno != EINTR) {
-        break;
+      if (errno == EAGAIN || errno == EINTR || errno == ENOBUFS) {
+        if (errno == ENOBUFS) {
+          std::this_thread::sleep_for(std::chrono::microseconds(100));
+        }
+        continue;
       }
+      break;
     }
   }
 
   // 连续失败后抛出异常，交由上层处理
-  const auto error_message = netdev_ + " write error: " + std::strerror(errno);
-  rm::Throw(std::runtime_error(error_message));
+  int err = errno;
+  std::string error_msg = netdev_ + " write error: " + std::strerror(err) + 
+                          " (errno=" + std::to_string(err) + 
+                          ", id=0x" + std::to_string(id) + 
+                          ", size=" + std::to_string(size) + ")";
+  rm::Throw(std::runtime_error(error_msg));
 }
 
 /**
