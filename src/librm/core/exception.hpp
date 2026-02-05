@@ -29,6 +29,7 @@
 #define LIBRM_CORE_EXCEPTIONS_HPP
 
 #include <stdexcept>
+#include <type_traits>
 
 #if defined(LIBRM_PLATFORM_STM32)
 #include "librm/hal/stm32/exception.hpp"
@@ -38,9 +39,12 @@ namespace rm {
 
 /**
  * @brief 抛出异常
- * @param e 异常类型
+ * @tparam T 异常类型（必须派生自 std::exception）
+ * @param e 异常对象
  */
-inline void Throw(__attribute__((__unused__)) const std::exception& e) {
+template <typename T>
+inline void Throw(__attribute__((__unused__)) const T& e) {
+  static_assert(std::is_base_of<std::exception, T>::value, "Thrown type must be derived from std::exception");
 #if defined(LIBRM_PLATFORM_LINUX)
   throw e;
 #elif defined(LIBRM_PLATFORM_STM32)
